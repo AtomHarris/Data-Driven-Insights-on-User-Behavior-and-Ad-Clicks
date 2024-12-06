@@ -1,11 +1,14 @@
 # importing libraries
 import os
+import re
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from scipy import stats
 import plotly.express as px
 import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+from collections import Counter
 from IPython.display import display, HTML
 
 class DataLoader:
@@ -303,6 +306,19 @@ class EDA:
         
         plt.tight_layout()
         plt.show()
+
+
+    def word_cloud(self, df, col):
+        text = ' '.join(df[col])
+        text = re.sub(r'[^a-zA-Z\s]', '', text.lower())
+        word_counts = Counter(text.split())
+
+        #Get the top 50 most frequent words
+        top_50_words = dict(word_counts.most_common(50))
+        
+        # Create a WordCloud object focusing on the top 50 words
+        wordcloud = WordCloud(width=800, height=500, background_color='white').generate_from_frequencies(top_50_words)
+        return wordcloud
 
     def plot_y_vs_numerical_columns(self,  x_list, y="Clicked_on_Ad",):
         for i, x in enumerate(x_list):
