@@ -1,10 +1,14 @@
 # importing libraries
 import os
+import re
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from scipy import stats
 import plotly.express as px
 import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+from collections import Counter
 from IPython.display import display, HTML
 
 class DataLoader:
@@ -303,6 +307,19 @@ class EDA:
         plt.tight_layout()
         plt.show()
 
+
+    def word_cloud(self, df, col):
+        text = ' '.join(df[col])
+        text = re.sub(r'[^a-zA-Z\s]', '', text.lower())
+        word_counts = Counter(text.split())
+
+        #Get the top 50 most frequent words
+        top_50_words = dict(word_counts.most_common(50))
+        
+        # Create a WordCloud object focusing on the top 50 words
+        wordcloud = WordCloud(width=800, height=500, background_color='white').generate_from_frequencies(top_50_words)
+        return wordcloud
+
     def plot_y_vs_numerical_columns(self,  x_list, y="Clicked_on_Ad",):
         for i, x in enumerate(x_list):
         # Create the boxplot
@@ -394,3 +411,144 @@ class EDA:
         # Show the plot
         plt.tight_layout()
         plt.show()
+
+class HypothesisTesting:
+    def __init__(self, data):
+        self.data = data
+        self.results = pd.DataFrame(columns=['Hypothesis', 'Test', 'Statistic', 'P-Value', 'Result'])
+
+    def add_result(self, hypothesis, test_name, statistic, p_value, result):
+        "Add test result to the results DataFrame using pd.concat."
+        result_df = pd.DataFrame({
+            'Hypothesis': [hypothesis],
+            'Test': [test_name],
+            'Statistic': [statistic],
+            'P-Value': [p_value],
+            'Result': [result]
+        })
+
+        # Drop empty or NaN columns before concatenation
+        result_df = result_df.loc[:, result_df.notna().any(axis=0)]
+        
+        # Concatenate the new result_df with the existing results DataFrame
+        self.results = pd.concat([self.results, result_df], ignore_index=True)
+
+    def test_age_vs_ad_clicks(self):
+        """Test hypothesis for age vs. ad clicks."""
+        corr, p_value = stats.pearsonr(self.data['Age'], self.data['Clicked_on_Ad'])
+
+        result = "Reject H₀: Significant relationship between age and ad clicks." if p_value <0.005 else "Fail to reject H₀: No significant relationship between age and ad clicks."
+        self.add_result('Age vs. Ad Clicks', 'Pearson Correlation', corr, p_value, result)
+    
+
+
+    def test_gender_vs_ad_clicks(self):
+        """Test hypothesis for gender vs. ad clicks using Chi-Square Test."""
+        # Create contingency table for 'Gender' and 'Clicked_on_Ad'
+        contingency_table = pd.crosstab(self.data['Gender'], self.data['Clicked_on_Ad'])
+
+        # Perform Chi-Square test
+        chi2_stat, p_value, dof, expected = stats.chi2_contingency(contingency_table)
+
+        # Interpret results
+        result = "Reject H₀: Significant relationship between gender and ad clicks." if p_value < 0.005 else "Fail to reject H₀: No significant relationship between gender and ad clicks."
+        self.add_result('Gender vs. Ad Clicks', 'Chi-Square', chi2_stat, p_value, result)
+
+
+    def test_area_income_vs_ad_clicks(self):
+        """Test hypothesis for area income vs. ad clicks."""
+        corr, p_value = stats.pearsonr(self.data['Area_Income'], self.data['Clicked_on_Ad'])
+
+        result = "Reject H₀: Area income significantly affects ad click likelihood." if p_value < 0.005 else "Fail to reject H₀: No significant effect of area income on ad click likelihood."
+        self.add_result('Area Income vs. Ad Clicks', 'Pearson Correlation', corr, p_value, result)
+
+    def test_country_vs_ad_clicks(self):
+        """Test hypothesis for country vs. ad clicks."""
+        contingency = pd.crosstab(self.data['Country'], self.data['Clicked_on_Ad'])
+        chi2_stat, p_value, dof, expected = stats.chi2_contingency(contingency)
+
+        result = "Reject H₀: Country significantly affects ad click likelihood." if p_value < 0.005 else "Fail to reject H₀: No significant effect of country on ad click likelihood."
+        self.add_result('Country vs. Ad Clicks', 'Chi-Square', chi2_stat, p_value, result)
+
+    def test_continent_vs_ad_clicks(self):
+        """Test hypothesis for continent vs. ad clicks."""
+        contingency = pd.crosstab(self.data['Continent'], self.data['Clicked_on_Ad'])
+        chi2_stat, p_value, dof, expected = stats.chi2_contingency(contingency)
+
+        result = "Reject H₀: Continent significantly affects ad click likelihood." if p_value < 0.005 else "Fail to reject H₀: No significant effect of continent on ad click likelihood."
+        self.add_result('Continent vs. Ad Clicks', 'Chi-Square', chi2_stat, p_value, result)
+
+    def test_day_of_week_vs_ad_clicks(self):
+        """Test hypothesis for day of the week vs. ad clicks."""
+        anova_result = stats.f_oneway(
+            self.data[self.data['Day'] == 'Monday']['Clicked_on_Ad'],
+            self.data[self.data['Day'] == 'Tuesday']['Clicked_on_Ad'],
+            self.data[self.data['Day'] == 'Wednesday']['Clicked_on_Ad'],
+            self.data[self.data['Day'] == 'Thursday']['Clicked_on_Ad'],
+            self.data[self.data['Day'] == 'Friday']['Clicked_on_Ad'],
+            self.data[self.data['Day'] == 'Saturday']['Clicked_on_Ad'],
+            self.data[self.data['Day'] == 'Sunday']['Clicked_on_Ad']
+        )
+
+        result = "Reject H₀: Ad click rate differs across days of the week." if anova_result.pvalue < 0.005 else "Fail to reject H₀: No significant difference in ad clicks across days of the week."
+        self.add_result('Day of Week vs. Ad Clicks', 'ANOVA', anova_result.statistic, anova_result.pvalue, result)
+
+    def test_time_of_day_vs_ad_clicks(self):
+        """Test hypothesis for time of day (hour) vs. ad clicks."""
+        anova_result = stats.f_oneway(
+            self.data[self.data['Hour'] == '00:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '01:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '02:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '03:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '04:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '05:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '06:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '07:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '08:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '09:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '10:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '11:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '12:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '13:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '14:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '15:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '16:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '17:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '18:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '19:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '20:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '21:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '22:00']['Clicked_on_Ad'],
+            self.data[self.data['Hour'] == '23:00']['Clicked_on_Ad']
+        )
+
+        result = "Reject H₀: The time of day significantly affects ad clicks." if anova_result.pvalue < 0.005 else "Fail to reject H₀: No significant effect of time of day on ad clicks."
+        self.add_result('Time of Day vs. Ad Clicks', 'ANOVA', anova_result.statistic, anova_result.pvalue, result)
+
+    def test_daily_internet_usage_vs_ad_clicks(self):
+        """Test hypothesis for daily internet usage vs. ad clicks."""
+        corr, p_value = stats.pearsonr(self.data['Daily_Internet_Usage'], self.data['Clicked_on_Ad'])
+
+        result = "Reject H₀: Daily internet usage significantly affects ad click likelihood." if p_value < 0.005 else "Fail to reject H₀: No significant effect of daily internet usage on ad click likelihood."
+        self.add_result('Daily Internet Usage vs. Ad Clicks', 'Pearson Correlation', corr, p_value, result)
+
+    def test_daily_time_spent_vs_ad_clicks(self):
+        """Test hypothesis for daily time spent on site vs. ad clicks."""
+        corr, p_value = stats.pearsonr(self.data['Daily_Time_Spent_on_Site'], self.data['Clicked_on_Ad'])
+
+        result = "Reject H₀: Daily time spent on site significantly affects ad click likelihood." if p_value < 0.005 else "Fail to reject H₀: No significant effect of daily time spent on site on ad click likelihood."
+        self.add_result('Daily Time Spent vs. Ad Clicks', 'Pearson Correlation', corr, p_value, result)
+
+    def test_ad_topic_line_vs_ad_clicks(self):
+        """Test hypothesis for ad topic line vs. ad clicks."""
+        contingency = pd.crosstab(self.data['Ad_Topic_Line'], self.data['Clicked_on_Ad'])
+        chi2_stat, p_value, dof, expected = stats.chi2_contingency(contingency)
+
+        result = "Reject H₀: Ad topic line significantly affects ad click likelihood." if p_value < 0.005 else "Fail to reject H₀: No significant effect of ad topic line on ad click likelihood."
+        self.add_result('Ad Topic Line vs. Ad Clicks', 'Chi-Square', chi2_stat, p_value, result)
+
+    def get_results(self):
+        """Return the results DataFrame."""
+        return self.results
+
+
