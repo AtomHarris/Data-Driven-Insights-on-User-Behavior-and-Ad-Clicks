@@ -161,6 +161,3 @@ The negative correlation between daily internet usage and ad clicks suggests tha
 
 Implement continuous A/B testing for ad creatives, targeting criteria, and campaign strategies to refine and optimize your approach based on the data insights.
 
-## LICENSE
-
-This project is licensed under the FlatIron License - see the [LICENSE](LICENSE) file for details.
